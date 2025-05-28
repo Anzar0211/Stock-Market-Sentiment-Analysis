@@ -384,19 +384,114 @@ class StockPricePredictor:
                 model_name = list(lstm_models.keys())[0]
                 model = lstm_models[model_name]
             else:
-                logger.error("No LSTM model available for prediction")
-                return None
+                # If no LSTM model, try to use a regression ML model
+                regression_models = {name: model for name, model in self.models.items() 
+                                   if isinstance(model, MLStockPredictor) and model.task_type == 'regression'}
+                
+                if regression_models:
+                    model_name = list(regression_models.keys())[0]
+                    model = regression_models[model_name]
+                else:
+                    logger.error("No suitable prediction model available")
+                    return None
         
         # Make predictions
         if isinstance(model, LSTMStockPredictor):
             predictions = model.predict(df, steps_ahead=steps_ahead)
+        elif isinstance(model, MLStockPredictor) and model.task_type == 'regression':
+            # For ML models, implement multi-step prediction by iteratively predicting one step at a time
+            # Start with the most recent data
+            X_latest = df.iloc[-1:].copy()
+            
+            # Initialize list to store predictions
+            multi_step_preds = []
+            dates = []
+            
+            # Get the last date from the input data
+            last_date = df.index[-1]
+            
+            # Iterate for each step
+            for i in range(steps_ahead):
+                # Make one-step prediction
+                pred = model.predict(X_latest)
+                multi_step_preds.append(pred[0])
+                
+                # Create next date
+                next_date = last_date + pd.Timedelta(days=i+1)
+                # Skip weekends
+                while next_date.weekday() > 4:  # 5 is Saturday, 6 is Sunday
+                    next_date = next_date + pd.Timedelta(days=1)
+                dates.append(next_date)
+                
+                # Create new row for next prediction by copying the last row
+                next_row = X_latest.iloc[-1:].copy()
+                
+                # Update the target column with the prediction
+                target_columns = ['Close', 'Open', 'High', 'Low']
+                for col in next_row.columns:
+                    if col in target_columns:
+                        if col == 'Close':
+                            next_row[col] = pred[0]
+                        elif col == 'Open':
+                            next_row[col] = pred[0] * 0.995  # Slight offset for Open
+                        elif col == 'High':
+                            next_row[col] = pred[0] * 1.01   # Slight increase for High
+                        elif col == 'Low':
+                            next_row[col] = pred[0] * 0.99   # Slight decrease for Low
+                
+                # Create a new dataframe with the next row and append to X_latest
+                next_df = pd.DataFrame(next_row.values, index=[next_date], columns=next_row.columns)
+                X_latest = pd.concat([X_latest, next_df])
+            
+            # Create a DataFrame with the predictions
+            predictions_df = pd.DataFrame(multi_step_preds, index=dates, columns=['Close'])
+            predictions = predictions_df
         else:
-            logger.error(f"Model {model_name} is not suitable for multi-step prediction")
+            logger.error(f"Model {model_name} is not suitable for price prediction")
             return None
         
         logger.info(f"Made {steps_ahead} step-ahead predictions using {model_name}")
         
         return predictions
+    
+    def predict_next_n_days(self, df, model_name=None, n_days=5):
+        """
+        Predict stock prices for the next n days
+        
+        Parameters:
+        -----------
+        df : pandas.DataFrame
+            DataFrame with stock data
+        model_name : str, optional
+            Name of model to use for prediction
+        n_days : int
+            Number of days to predict ahead
+            
+        Returns:
+        --------
+        list
+            List of predicted prices for the next n days
+        """
+        # This is a simpler interface for the predict_price method that returns
+        # just an array of values rather than a DataFrame
+        
+        predictions_df = self.predict_price(df, model_name=model_name, steps_ahead=n_days)
+        
+        if predictions_df is None:
+            return None
+            
+        # Extract the predicted values into a simple list
+        if isinstance(predictions_df, pd.DataFrame):
+            # If it's a DataFrame, extract the 'Close' column or the first column
+            if 'Close' in predictions_df.columns:
+                predictions = predictions_df['Close'].values.tolist()
+            else:
+                predictions = predictions_df.iloc[:, 0].values.tolist()
+        else:
+            # If it's not a DataFrame, convert to list if it's a numpy array
+            predictions = predictions_df.tolist() if hasattr(predictions_df, 'tolist') else list(predictions_df)
+            
+        return predictions[:n_days]  # Ensure we return exactly n_days predictions
     
     def predict_direction(self, df, model_name=None):
         """

@@ -6,6 +6,16 @@ A comprehensive platform for collecting, analyzing sentiment, and predicting sto
 
 This project combines natural language processing (NLP), machine learning, and financial data analysis to provide insights into market sentiment and predict stock price movements. It collects real-time data from social media platforms and news sources, analyzes sentiment, and uses this information along with historical market data to generate predictions.
 
+## What Makes This Project Unique?
+
+- **Multi-Source Sentiment Analysis**: Integrates sentiment from news, Reddit, Twitter, and StockTwits using advanced and custom analyzers (e.g., FinBERT, VADER with financial tuning).
+- **Portfolio & Sector Sentiment Aggregation**: Analyzes and visualizes sentiment at the stock, sector, and portfolio level, including distribution and sector comparison.
+- **Custom Fear & Greed Index**: Implements a multi-factor index using market breadth, momentum, junk bond demand, and sentiment indicators.
+- **Economic Factor Integration**: Combines sector performance, sentiment, and economic indicators for deeper insights.
+- **Interactive Dashboard**: Real-time, interactive dashboard for monitoring, prediction, backtesting, and sector/stock comparison.
+- **Terminal-Based Model Evaluation**: Run model accuracy evaluation and backtesting directly from the terminal with detailed tabular output, no dashboard required.
+- **Data Simulation**: Simulates realistic sector/stock data for robust demo and fallback when real data is missing.
+
 ## Features
 
 - **Multi-source Data Collection**:
@@ -88,43 +98,96 @@ pip install -r requirements.txt
 
 ## Usage
 
-### Data Collection
+## How to Run and Test Everything (Windows)
 
-```bash
-# Collect Twitter data
-python fetch_multiple_twitter_accounts.py
+### 1. Activate the Virtual Environment
 
-# Collect Reddit data
-python reddit_scraper.py
-
-# Collect financial news
-python news_api_collector.py
-
-# Collect stock price data
-python stock_data_collection.py
+```bat
+sentiment_env\Scripts\activate
 ```
 
-### Running the Dashboard
+### 2. Install Dependencies
 
-```bash
+```bat
+pip install -r requirements.txt
+```
+
+### 3. Data Collection
+
+```bat
+python fetch_multiple_twitter_accounts.py         # Collect Twitter data
+python reddit_scraper.py                          # Collect Reddit data
+python news_api_collector.py                      # Collect financial news
+python stock_data_collection.py                   # Collect stock price data
+```
+
+### 4. Preprocessing and Feature Engineering (if scripts available)
+
+```bat
+python src\preprocessing\run_preprocessing.py
+python src\preprocessing\run_feature_engineering.py
+```
+
+### 5. Run the Dashboard
+
+```bat
 python run_dashboard.py
 ```
 
-### Running Example Analysis
+- Open your browser and go to: http://localhost:8050
 
-```bash
-python examples/apple_sentiment_analysis.py
-python examples/stock_price_prediction_demo.py
+### 6. Terminal-Based Model Accuracy Evaluation
+
+```bat
+python evaluate_model_accuracy.py --ticker AAPL --model lstm --days 5 --periods 3 --save-results
+python evaluate_model_accuracy.py --ticker MSFT --model random_forest --days 10 --periods 5 --save-results
+python evaluate_model_accuracy.py --ticker AAPL --model xgboost --days 7 --periods 4
 ```
 
-## Example Results
+- `--ticker`: Stock symbol (AAPL, MSFT, etc.)
+- `--model`: Model type (`lstm`, `random_forest`, `xgboost`)
+- `--days`: Prediction horizon in days
+- `--periods`: Number of backtest periods
+- `--save-results`: Save results to the `results/` directory
 
-The `examples/` directory contains demonstrations of various analysis techniques:
+### 7. Run Example Analysis Scripts
 
-- Sentiment analysis comparison across different models
-- Text processing pipelines for financial text
-- Stock price prediction using sentiment features
-- Visualization of sentiment distribution across sources
+```bat
+python examples\apple_sentiment_analysis.py
+python examples\stock_price_prediction_demo.py
+python examples\text_processing_sentiment_demo.py
+```
+
+### 8. Testing Data Collection and Sentiment Modules
+
+```bat
+python test_data_collection.py
+python test_reddit_collector.py
+python test_scrape_stocktwits.py
+python test_sentiment_visualization.py
+```
+
+---
+
+## Command Summary Table
+
+| Task                         | Command Example                                                                                    |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- |
+| Collect Twitter data         | `python fetch_multiple_twitter_accounts.py`                                                        |
+| Collect Reddit data          | `python reddit_scraper.py`                                                                         |
+| Collect news                 | `python news_api_collector.py`                                                                     |
+| Collect stock prices         | `python stock_data_collection.py`                                                                  |
+| Preprocessing                | `python src\preprocessing\run_preprocessing.py`                                                    |
+| Feature engineering          | `python src\preprocessing\run_feature_engineering.py`                                              |
+| Run dashboard                | `python run_dashboard.py`                                                                          |
+| Model accuracy (terminal)    | `python evaluate_model_accuracy.py --ticker AAPL --model lstm --days 5 --periods 3 --save-results` |
+| Example analysis             | `python examples\apple_sentiment_analysis.py`                                                      |
+| Test data collection         | `python test_data_collection.py`                                                                   |
+| Test Reddit collector        | `python test_reddit_collector.py`                                                                  |
+| Test StockTwits              | `python test_scrape_stocktwits.py`                                                                 |
+| Test sentiment visualization | `python test_sentiment_visualization.py`                                                           |
+
+---
 
 ## License
 

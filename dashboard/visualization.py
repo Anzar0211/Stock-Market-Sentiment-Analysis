@@ -647,3 +647,258 @@ class StockVisualizer:
         )
         
         return fig
+
+    def create_comparison_chart(self, stocks_data, title=None, normalize=True):
+        """
+        Create a comparison chart for multiple stocks
+        
+        Parameters:
+        -----------
+        stocks_data : dict
+            Dictionary of DataFrames with stock data (ticker as key)
+        title : str, optional
+            Chart title
+        normalize : bool
+            Whether to normalize prices to the same starting point
+            
+        Returns:
+        --------
+        plotly.graph_objects.Figure
+            Plotly figure object
+        """
+        if not stocks_data:
+            return go.Figure()
+        
+        fig = go.Figure()
+        
+        # Set a broader color palette for multiple stocks
+        color_palette = [
+            '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', 
+            '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'
+        ]
+        
+        # Sort tickers to ensure consistent colors
+        tickers = sorted(stocks_data.keys())
+        
+        for idx, ticker in enumerate(tickers):
+            df = stocks_data[ticker]
+            
+            # Skip if no data or missing Close column
+            if df is None or df.empty or 'Close' not in df.columns:
+                logger.warning(f"Skipping {ticker} - No valid data")
+                continue
+            
+            # Log the values for debugging
+            logger.info(f"Plotting {ticker} with {len(df)} data points")
+            
+            # Normalize prices if requested
+            if normalize:
+                # Get the starting value, ensuring it's not NaN or 0
+                start_val = df['Close'].iloc[0]
+                if pd.isna(start_val) or start_val == 0:
+                    # Try to find the first non-zero, non-NaN value
+                    for val in df['Close']:
+                        if not pd.isna(val) and val > 0:
+                            start_val = val
+                            break
+                    if pd.isna(start_val) or start_val == 0:
+                        logger.warning(f"Cannot normalize {ticker} - No valid starting price")
+                        continue
+                
+                # Calculate normalized values (percentage of starting value)
+                y_values = (df['Close'] / start_val) * 100
+                
+                # Create a fixed hover template string that doesn't use f-string interpolation in the hover template
+                fig.add_trace(
+                    go.Scatter(
+                        x=df.index,
+                        y=y_values,
+                        name=ticker,
+                        line=dict(
+                            color=color_palette[idx % len(color_palette)],
+                            width=2.5
+                        ),
+                        hovertemplate='<b>%{x}</b><br>' + 
+                                    ticker + ': %{y:.2f}% of starting value<br>' +
+                                    'Starting: $' + f"{start_val:.2f}" + '<br>' +
+                                    'Current: $%{customdata:.2f}<extra></extra>',
+                        customdata=df['Close']
+                    )
+                )
+            else:
+                # Use actual price values
+                y_values = df['Close']
+                
+                # Create a fixed hover template 
+                fig.add_trace(
+                    go.Scatter(
+                        x=df.index,
+                        y=y_values,
+                        name=ticker,
+                        line=dict(
+                            color=color_palette[idx % len(color_palette)],
+                            width=2.5
+                        ),
+                        hovertemplate='<b>%{x}</b><br>' +
+                                    ticker + ': $%{y:.2f}<extra></extra>'
+                    )
+                )
+        
+        # Update layout
+        layout = self.default_layout.copy()
+        layout.update({
+            'title': {
+                'text': title or 'Stock Price Comparison',
+                'font': {'size': 18, 'color': '#444'}
+            },
+            'xaxis_title': 'Date',
+            'yaxis_title': 'Normalized Price (%)' if normalize else 'Price ($)',
+            'legend': {
+                'orientation': 'h',
+                'y': 1.02,
+                'x': 0.5,
+                'xanchor': 'center',
+                'font': {'size': 12}
+            },
+            'height': 600
+        })
+        
+        # Hide weekends for cleaner chart
+        layout['xaxis'].update({
+            'rangebreaks': [
+                dict(bounds=["sat", "mon"])
+            ]
+        })
+        
+        fig.update_layout(**layout)
+        
+        # Add range slider
+        fig.update_xaxes(
+            rangeslider_visible=True,
+            rangeslider_thickness=0.05
+        )
+        
+        # Add watermark 
+        fig.add_annotation(
+            text="Stock Analytics Dashboard",
+            x=0.5,
+            y=0.5,
+            xref="paper",
+            yref="paper",
+            showarrow=False,
+            font=dict(
+                family="Arial",
+                size=30,
+                color="rgba(150,150,150,0.1)"
+            ),
+            textangle=-30
+        )
+        
+        return fig
+    
+    def create_correlation_heatmap(self, stocks_data, title=None):
+        """
+        Create a correlation heatmap for multiple stocks
+        
+        Parameters:
+        -----------
+        stocks_data : dict
+            Dictionary of DataFrames with stock data (ticker as key)
+        title : str, optional
+            Chart title
+            
+        Returns:
+        --------
+        plotly.graph_objects.Figure
+            Plotly figure object
+        """
+        if not stocks_data or len(stocks_data) < 2:
+            fig = go.Figure()
+            fig.update_layout(
+                title="Not enough data for correlation analysis",
+                annotations=[{
+                    'text': "Please select at least two stocks for comparison",
+                    'showarrow': False,
+                    'font': {'size': 16},
+                    'xref': 'paper',
+                    'yref': 'paper',
+                    'x': 0.5,
+                    'y': 0.5
+                }]
+            )
+            return fig
+        
+        # Extract returns data
+        returns_data = {}
+        for ticker, df in stocks_data.items():
+            if df is not None and not df.empty and 'Close' in df.columns and len(df) > 1:
+                # Calculate daily returns
+                returns_data[ticker] = df['Close'].pct_change().dropna()
+        
+        # Skip if not enough data
+        if len(returns_data) < 2:
+            fig = go.Figure()
+            fig.update_layout(
+                title="Not enough data for correlation analysis",
+                annotations=[{
+                    'text': "Please select stocks with more data points",
+                    'showarrow': False,
+                    'font': {'size': 16},
+                    'xref': 'paper',
+                    'yref': 'paper',
+                    'x': 0.5,
+                    'y': 0.5
+                }]
+            )
+            return fig
+        
+        # Create a DataFrame with all returns
+        returns_df = pd.DataFrame(returns_data)
+        
+        # Calculate correlation matrix
+        corr_matrix = returns_df.corr()
+        
+        # Create heatmap
+        fig = go.Figure(data=go.Heatmap(
+            z=corr_matrix.values,
+            x=corr_matrix.index,
+            y=corr_matrix.columns,
+            zmin=-1, zmax=1,
+            colorscale='RdBu',
+            colorbar=dict(
+                title=dict(
+                    text="Correlation",
+                    side="right"
+                )
+            ),
+            hovertemplate='%{y} - %{x}<br>Correlation: %{z:.4f}<extra></extra>'
+        ))
+        
+        # Add correlation values as text
+        for i, ticker1 in enumerate(corr_matrix.index):
+            for j, ticker2 in enumerate(corr_matrix.columns):
+                fig.add_annotation(
+                    x=ticker1,
+                    y=ticker2,
+                    text=f"{corr_matrix.iloc[j, i]:.2f}",
+                    showarrow=False,
+                    font=dict(
+                        color="black" if abs(corr_matrix.iloc[j, i]) < 0.7 else "white",
+                        size=10
+                    )
+                )
+        
+        # Update layout
+        layout = self.default_layout.copy()
+        layout.update({
+            'title': {
+                'text': title or 'Stock Returns Correlation Matrix',
+                'font': {'size': 18, 'color': '#444'}
+            },
+            'height': 600,
+            'margin': {'l': 60, 'r': 60, 't': 80, 'b': 80}
+        })
+        
+        fig.update_layout(**layout)
+        
+        return fig

@@ -353,6 +353,47 @@ class StockFeatureEngineer:
         
         return result
     
+    def add_all_features(self, df, include_sentiment=True):
+        """
+        Add all features to the dataframe - wrapper for run_complete_feature_engineering
+        
+        Parameters:
+        -----------
+        df : pandas.DataFrame
+            DataFrame with raw data
+        include_sentiment : bool
+            Whether to include sentiment features
+            
+        Returns:
+        --------
+        pandas.DataFrame
+            DataFrame with all engineered features
+        """
+        if not isinstance(df, pd.DataFrame):
+            logger.error("Invalid DataFrame")
+            return df
+            
+        logger.info(f"Adding all features to DataFrame with {len(df)} rows")
+        
+        # Step 1: Add technical indicators
+        result = self.add_technical_indicators(df)
+        
+        # Step 2: Add price features
+        result = self.add_price_features(result)
+        
+        # Step 3: Add sentiment features if requested
+        if include_sentiment:
+            result = self.add_sentiment_features(result)
+        
+        # Step 4: Add target variables
+        result = self.add_target_variables(result)
+        
+        # Calculate how many features were added
+        added_features = len(result.columns) - len(df.columns)
+        logger.info(f"Added a total of {added_features} features")
+        
+        return result
+    
     def prepare_ml_dataset(self, df, test_size=0.2, target_column='Target_Direction_1d'):
         """
         Prepare dataset for machine learning by splitting into train/test sets

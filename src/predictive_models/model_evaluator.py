@@ -523,6 +523,18 @@ class ModelEvaluator:
         else:
             stride = 0
         
+        # Terminal output header for results
+        print("\n" + "="*80)
+        print(f"MODEL ACCURACY EVALUATION - BACKTEST RESULTS ({prediction_days}-day predictions)")
+        print("="*80)
+        print(f"Model Type: {model.__class__.__name__}")
+        print(f"Target Column: {target_column}")
+        print(f"Backtest Periods: {backtest_periods}")
+        print(f"Test Size: {test_size_days} days per period")
+        print("-"*80)
+        print(f"{'Period':<8} {'Price Acc.%':<12} {'Direction Acc.%':<16} {'RMSE':<10} {'MAE':<10} {'Date Range'}")
+        print("-"*80)
+        
         for i in range(backtest_periods):
             # Calculate test start/end indices
             test_end = data_size - (i * stride)
@@ -564,6 +576,15 @@ class ModelEvaluator:
                     evaluation['test_start_date'] = test_df.index[0]
                     evaluation['test_end_date'] = test_df.index[-1]
                     
+                    # Terminal output for this period
+                    date_range = f"{test_df.index[0].strftime('%Y-%m-%d')} to {test_df.index[-1].strftime('%Y-%m-%d')}"
+                    acc_pct = evaluation.get('accuracy_pct', 0)
+                    dir_acc = evaluation.get('direction_accuracy', 0)
+                    rmse = evaluation.get('rmse', 0)
+                    mae = evaluation.get('mae', 0)
+                    
+                    print(f"{i+1:<8} {acc_pct:<12.2f} {dir_acc if dir_acc else 'N/A':<16} {rmse:<10.4f} {mae:<10.4f} {date_range}")
+                    
                     # Save figure if created
                     if 'figure' in evaluation and evaluation['figure'] is not None:
                         figures.append(evaluation['figure'])
@@ -575,6 +596,7 @@ class ModelEvaluator:
                 
             except Exception as e:
                 logging.error(f"Error in backtest period {i+1}: {e}")
+                print(f"Error in backtest period {i+1}: {e}")
                 continue
         
         # Calculate aggregate metrics
@@ -589,6 +611,16 @@ class ModelEvaluator:
                 'total_periods': len(results),
                 'prediction_days': prediction_days
             }
+            
+            # Terminal output for aggregate results
+            print("-"*80)
+            print("AGGREGATE RESULTS:")
+            print(f"Average Price Accuracy:    {aggregate_metrics['avg_accuracy']:.2f}%")
+            print(f"Average Direction Accuracy:{aggregate_metrics['avg_direction_accuracy']:.2f}%")
+            print(f"Average RMSE:              {aggregate_metrics['avg_rmse']:.4f}")
+            print(f"Average MAE:               {aggregate_metrics['avg_mae']:.4f}")
+            print(f"Average MAPE:              {aggregate_metrics['avg_mape']:.2f}%")
+            print("="*80)
             
             # Create a summary plot of accuracy across periods
             period_numbers = [r['period'] for r in results]
